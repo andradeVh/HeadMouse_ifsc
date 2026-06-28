@@ -7,7 +7,7 @@
 #include <esp_wifi.h>
 
 MPU6050 mpu;
-BleMouse bleMouse("BLE_mouse", 100);
+BleMouse bleMouse("BLE_mouse","DIY",100);
 
 int16_t ax, ay, az, gx, gy, gz;
 int vx, vy;
@@ -59,20 +59,21 @@ void loop() {
 }
 
 void setCalibration() {
-  mpu.setXAccelOffset(-1738);
-  mpu.setYAccelOffset(-796);
-  mpu.setZAccelOffset(617);
-  mpu.setXGyroOffset(32);
-  mpu.setYGyroOffset(-36);
-  mpu.setZGyroOffset(-5);
+  mpu.CalibrateGyro(7);
+//mpu.setXAccelOffset(-1738);
+//  mpu.setYAccelOffset(-796);
+//  mpu.setZAccelOffset(617);
+//  mpu.setXGyroOffset(32);
+//  mpu.setYGyroOffset(-36);
+//  mpu.setZGyroOffset(-5);
 }
 
 void handle() {
   mpu.getRotation(&gx, &gy, &gz); // Usamos apenas rotação para o mouse
 
   // Sensibilidade
-  vx = -gx / 200;
-  vy = -gz /200; 
+  vx = -gy / 100;
+  vy = -gz /100; 
 
   // Zona morta para ignorar pequenos ruídos
   if (abs(vx) < 2) vx = 0;

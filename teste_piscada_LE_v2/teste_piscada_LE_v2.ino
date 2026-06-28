@@ -3,7 +3,7 @@
 #include <esp_wifi.h>
 #include <esp32-hal-cpu.h>
 
-// ─── Pinos ───────────────────────────────────────────────
+// ─── Pinos ─────────────r──────────────────────────────────
 const int PIN_BT      = 14;
 const int sensorPin   = 34;
 const int pino_sample = 15;

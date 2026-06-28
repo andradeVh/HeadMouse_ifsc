@@ -25,7 +25,7 @@ float g_valorBaseLine   = -1;      // -1 = não inicializado ainda
 
 // ─── Parâmetros de detecção ───────────────────────────────
 // Ajuste DELTA conforme seu hardware (comece com 15 e suba se der falsos clicks)
-#define DELTA_PISCADA       15     
+#define DELTA_PISCADA       20     
 #define FATOR_RELEASE       0.35   // Solta o botão quando média cai abaixo de (baseline + delta * FATOR)
 #define TIMEOUT_PISCADA_MS  900    // Máximo de tempo que uma "piscada" pode durar
 #define ALPHA_BASELINE      0.05   // Velocidade de adaptação do baseline (menor = mais lento = mais estável)
