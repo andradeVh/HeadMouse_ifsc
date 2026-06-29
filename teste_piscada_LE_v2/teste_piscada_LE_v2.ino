@@ -24,7 +24,7 @@ float g_mediaAtual    = 0;
 float g_valorBaseLine = -1;
 
 // ─── Parâmetros de detecção ───────────────────────────────
-#define DELTA_PISCADA      15
+#define DELTA_PISCADA      20
 #define FATOR_RELEASE      0.35
 #define TIMEOUT_PISCADA_MS 900
 #define ALPHA_BASELINE     0.05
@@ -44,7 +44,7 @@ int fase = 1;
 // O deep sleep só é acionado se não houver conexão BLE por muito tempo.
 #define TEMPO_INATIVO_MS      5000
 #define INTERVALO_ECONOMICO_US 3000
-#define TEMPO_SEM_BT_MS       30000
+#define TEMPO_SEM_BT_MS       60000
 
 unsigned long ultimaAtividade = 0;
 unsigned long tempoSemConexao = 0;
