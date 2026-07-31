@@ -21,10 +21,10 @@
 #include "nimconfig.h"
 #if CONFIG_BT_ENABLED && CONFIG_BT_NIMBLE_ROLE_PERIPHERAL
 
-#ifdef USING_NIMBLE_ARDUINO_HEADERS
-#  include "nimble/nimble/host/include/host/ble_hs.h"
-# else
+# if defined(CONFIG_NIMBLE_CPP_IDF)
 #  include "host/ble_hs.h"
+# else
+#  include "nimble/nimble/host/include/host/ble_hs.h"
 # endif
 
 /****  FIX COMPILATION ****/

@@ -21,21 +21,17 @@
 #include "nimconfig.h"
 #if CONFIG_BT_NIMBLE_ENABLED && (CONFIG_BT_NIMBLE_ROLE_PERIPHERAL || CONFIG_BT_NIMBLE_ROLE_CENTRAL)
 
-# ifdef USING_NIMBLE_ARDUINO_HEADERS
-#  include "nimble/nimble/include/nimble/nimble_npl.h"
-# else
+# if defined(CONFIG_NIMBLE_CPP_IDF)
 #  include "nimble/nimble_npl.h"
+# else
+#  include "nimble/nimble/include/nimble/nimble_npl.h"
 # endif
 
 # include <functional>
 # include <type_traits>
 # include <cstdarg>
 
-# ifndef NIMBLE_CPP_ARDUINO_STRING_AVAILABLE
-#  define NIMBLE_CPP_ARDUINO_STRING_AVAILABLE (__has_include(<Arduino.h>))
-# endif
-
-# if NIMBLE_CPP_ARDUINO_STRING_AVAILABLE
+# ifdef NIMBLE_CPP_ARDUINO_STRING_AVAILABLE
 #  include <Stream.h>
 # else
 

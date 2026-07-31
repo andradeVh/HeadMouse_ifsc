@@ -21,10 +21,10 @@
 # include "NimBLEAddress.h"
 # include "NimBLELog.h"
 
-#ifdef USING_NIMBLE_ARDUINO_HEADERS
-#  include "nimble/nimble/host/include/host/ble_hs.h"
-#else
+# if defined(CONFIG_NIMBLE_CPP_IDF)
 #  include "host/ble_hs.h"
+# else
+#  include "nimble/nimble/host/include/host/ble_hs.h"
 # endif
 
 /****  FIX COMPILATION ****/

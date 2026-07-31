@@ -245,7 +245,7 @@ void NimBLEService::addCharacteristic(NimBLECharacteristic* pChar) {
     }
 
     pChar->setService(this);
-    getServer()->setServiceChanged();
+    getServer()->serviceChanged();
 } // addCharacteristic
 
 /**
@@ -272,7 +272,7 @@ void NimBLEService::removeCharacteristic(NimBLECharacteristic* pChar, bool delet
     }
 
     pChar->setRemoved(deleteChr ? NIMBLE_ATT_REMOVE_DELETE : NIMBLE_ATT_REMOVE_HIDE);
-    getServer()->setServiceChanged();
+    getServer()->serviceChanged();
 } // removeCharacteristic
 
 /**

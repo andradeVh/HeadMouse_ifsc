@@ -1,3 +1,5 @@
+#define USE_NIMBLE
+
 #include <BleMouse.h>
 
 BleMouse bleMouse("Mouse do Francisco");
@@ -18,4 +20,5 @@ void loop() {
       delay(50); // Debounce: evita múltiplos cliques por um único toque
     }
   }
+  delay(10);
 }

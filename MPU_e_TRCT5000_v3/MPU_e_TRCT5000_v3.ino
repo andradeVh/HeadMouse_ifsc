@@ -44,10 +44,10 @@ float g_valorBaseLine = -1;
 float g_mediaAnterior = 0;
 
 // ─── Parâmetros de detecção de piscada ───────────────────
-#define DELTA_PISCADA      7
+#define DELTA_PISCADA      10
 #define FATOR_RELEASE      0.35
 #define TIMEOUT_PISCADA_MS 900
-#define VELOCIDADE_MIN_PISCADA  6.0
+#define VELOCIDADE_MIN_PISCADA  8.0
 
 #define ALPHA_MIN       0.03   // estável: atualiza devagar
 #define ALPHA_MAX       0.30   // mudança brusca: atualiza rápido
@@ -106,7 +106,7 @@ void avancarModo() {
 
 void setup() {
   Serial.begin(115200);
-
+  mpu.initialize();
   configurarEnergia();
 
   Wire.begin(21, 22);
@@ -119,7 +119,7 @@ void setup() {
   memset(vetorLeituras, 0, sizeof(vetorLeituras));
 
   Serial.println("Iniciando MPU6050...");
-  mpu.initialize();
+  //mpu.initialize();
   if (mpu.testConnection()) {
     Serial.println("MPU6050: OK");
   } else {
@@ -140,7 +140,7 @@ void setup() {
 // ─────────────────────────────────────────────────────────
 
 void loop() {
-  unsigned long agora      = micros();
+  //unsigned long agora      = micros();
   unsigned long agoraMilis = millis();
 
   bool btConectado = bleMouse.isConnected();
@@ -172,7 +172,6 @@ void loop() {
 
   if (piscadaAtiva) {
     unsigned long agoraIR = micros();
-
     if (agoraIR - ultimoSampleMicros >= (unsigned long)INTERVALO_FASE_US) {
       ultimoSampleMicros = agoraIR;
 
@@ -181,7 +180,8 @@ void loop() {
           digitalWrite(pino_sample, HIGH);
           leituraIREmAndamento = true;
           break;
-        case 2:
+      
+  case 2:
           sensorValueOn = analogRead(sensorPin);  // lê enquanto LED ligado
           digitalWrite(pino_sample, LOW);
           break;
@@ -216,7 +216,7 @@ void loop() {
       if (abs(vy) < 2) vy = 0;
 
       if (vx != 0 || vy != 0) {
-        bleMouse.move(vx, vy);
+        //bleMouse.move(vx, vy);
       }
     }
   }

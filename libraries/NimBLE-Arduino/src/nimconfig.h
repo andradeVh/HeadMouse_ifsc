@@ -403,6 +403,13 @@ defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S3)
 #  define CONFIG_BT_NIMBLE_MAX_PERIODIC_SYNCS 1
 #endif
 
+/* Enables the use of Arduino String class for attribute values */
+#if defined __has_include
+#  if __has_include (<Arduino.h>)
+#    define NIMBLE_CPP_ARDUINO_STRING_AVAILABLE
+#  endif
+#endif
+
 #ifndef CONFIG_NIMBLE_CPP_DEBUG_ASSERT_ENABLED
 #define CONFIG_NIMBLE_CPP_DEBUG_ASSERT_ENABLED 0
 #endif
@@ -422,7 +429,3 @@ void nimble_cpp_assert(const char *file, unsigned line) __attribute((weak, noret
 #else
 # define NIMBLE_CPP_DEBUG_ASSERT(cond) (void(0))
 #endif
-
-// Indicate that NimBLE Arduino headers are being used,
-// allows for drop-in compatibility with the esp-nimble-cpp library where it is not defined.
-#define USING_NIMBLE_ARDUINO_HEADERS (1)

@@ -9,10 +9,10 @@
 # include "NimBLELog.h"
 # include "NimBLEUtils.h"
 
-# ifdef USING_NIMBLE_ARDUINO_HEADERS
-#  include "nimble/nimble/host/include/host/ble_gap.h"
-# else
+# if defined(CONFIG_NIMBLE_CPP_IDF)
 #  include "host/ble_gap.h"
+# else
+#  include "nimble/nimble/host/include/host/ble_gap.h"
 # endif
 
 // L2CAP buffer block size
@@ -134,14 +134,8 @@ int NimBLEL2CAPChannel::writeFragment(std::vector<uint8_t>::const_iterator begin
 
             case BLE_HS_ENOMEM:
             case BLE_HS_EAGAIN:
-                /* ble_l2cap_send already consumed and freed txd on these errors */
-                NIMBLE_LOGD(LOG_TAG, "ble_l2cap_send returned %d (consumed buffer). Retrying shortly...", res);
-                ble_npl_time_delay(ble_npl_time_ms_to_ticks32(RetryTimeout));
-                continue;
-
             case BLE_HS_EBUSY:
-                /* Channel busy; txd not consumed */
-                NIMBLE_LOGD(LOG_TAG, "ble_l2cap_send returned %d (busy). Retrying shortly...", res);
+                NIMBLE_LOGD(LOG_TAG, "ble_l2cap_send returned %d. Retrying shortly...", res);
                 os_mbuf_free_chain(txd);
                 ble_npl_time_delay(ble_npl_time_ms_to_ticks32(RetryTimeout));
                 continue;
@@ -201,28 +195,6 @@ bool NimBLEL2CAPChannel::write(const std::vector<uint8_t>& bytes) {
         start = end;
     }
     return true;
-}
-
-bool NimBLEL2CAPChannel::disconnect() {
-    if (!this->channel) {
-        NIMBLE_LOGW(LOG_TAG, "L2CAP Channel not open");
-        return false;
-    }
-
-    int rc = ble_l2cap_disconnect(this->channel);
-    if (rc != 0 && rc != BLE_HS_ENOTCONN && rc != BLE_HS_EALREADY) {
-        NIMBLE_LOGE(LOG_TAG, "ble_l2cap_disconnect failed: rc=%d %s", rc, NimBLEUtils::returnCodeToString(rc));
-        return false;
-    }
-
-    return true;
-}
-
-uint16_t NimBLEL2CAPChannel::getConnHandle() const {
-    if (!this->channel) {
-        return BLE_HS_CONN_HANDLE_NONE;
-    }
-    return ble_l2cap_get_conn_handle(this->channel);
 }
 
 // private

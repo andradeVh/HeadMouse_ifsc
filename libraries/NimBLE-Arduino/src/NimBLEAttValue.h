@@ -21,13 +21,8 @@
 #include "nimconfig.h"
 #if CONFIG_BT_ENABLED
 
-/* Enables the use of Arduino String class for attribute values */
-# ifndef NIMBLE_CPP_ARDUINO_STRING_AVAILABLE
-#  define NIMBLE_CPP_ARDUINO_STRING_AVAILABLE (__has_include(<Arduino.h>))
-# endif
-
-# if NIMBLE_CPP_ARDUINO_STRING_AVAILABLE
-#  include <WString.h>
+# ifdef NIMBLE_CPP_ARDUINO_STRING_AVAILABLE
+#  include <Arduino.h>
 # endif
 
 # include <string>
@@ -140,7 +135,7 @@ class NimBLEAttValue {
     NimBLEAttValue(const std::vector<uint8_t> vec, uint16_t max_len = BLE_ATT_ATTR_MAX_LEN)
         : NimBLEAttValue(&vec[0], vec.size(), max_len) {}
 
-# if NIMBLE_CPP_ARDUINO_STRING_AVAILABLE
+# ifdef NIMBLE_CPP_ARDUINO_STRING_AVAILABLE
     /**
      * @brief Construct with an initial value from an Arduino String.
      * @param str An Arduino String containing to the initial value to set.
@@ -244,23 +239,6 @@ class NimBLEAttValue {
 
 # if __cplusplus < 201703L
     /**
-     * @brief Template to set value to the value of a char array using strnlen.
-     * @param [in] s A reference to a char array.
-     * @details Only used for char array types to correctly determine length via strnlen.
-     */
-    template <typename T>
-#  ifdef _DOXYGEN_
-    bool
-#  else
-    typename std::enable_if<std::is_array<T>::value &&
-                                std::is_same<typename std::remove_extent<T>::type, char>::value,
-                            bool>::type
-#  endif
-    setValue(const T& s) {
-        return setValue(reinterpret_cast<const uint8_t*>(s), strnlen(s, sizeof(T)));
-    }
-
-    /**
      * @brief Template to set value to the value of <type\>val.
      * @param [in] v The <type\>value to set.
      * @details Only used for types without a `c_str()` and `length()` or `data()` and `size()` method.
@@ -270,10 +248,7 @@ class NimBLEAttValue {
 #  ifdef _DOXYGEN_
     bool
 #  else
-    typename std::enable_if<!std::is_pointer<T>::value && !Has_c_str_length<T>::value && !Has_data_size<T>::value &&
-                                !(std::is_array<T>::value &&
-                                  std::is_same<typename std::remove_extent<T>::type, char>::value),
-                            bool>::type
+    typename std::enable_if<!std::is_pointer<T>::value && !Has_c_str_length<T>::value && !Has_data_size<T>::value, bool>::type
 #  endif
     setValue(const T& v) {
         return setValue(reinterpret_cast<const uint8_t*>(&v), sizeof(T));
@@ -344,9 +319,6 @@ class NimBLEAttValue {
             }
         } else if constexpr (Has_c_str_length<T>::value) {
             return setValue(reinterpret_cast<const uint8_t*>(s.c_str()), s.length());
-        } else if constexpr (std::is_array<T>::value &&
-                             std::is_same<typename std::remove_extent<T>::type, char>::value) {
-            return setValue(reinterpret_cast<const uint8_t*>(s), strnlen(s, sizeof(s)));
         } else {
             return setValue(reinterpret_cast<const uint8_t*>(&s), sizeof(s));
         }
@@ -416,7 +388,7 @@ class NimBLEAttValue {
     /** @brief Inequality operator */
     bool operator!=(const NimBLEAttValue& source) const { return !(*this == source); }
 
-# if NIMBLE_CPP_ARDUINO_STRING_AVAILABLE
+# ifdef NIMBLE_CPP_ARDUINO_STRING_AVAILABLE
     /** @brief Operator; Get the value as an Arduino String value. */
     operator String() const { return String(reinterpret_cast<char*>(m_attr_value)); }
 # endif

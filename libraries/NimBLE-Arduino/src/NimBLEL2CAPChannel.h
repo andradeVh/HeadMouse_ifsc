@@ -9,12 +9,12 @@
 #if CONFIG_BT_ENABLED && CONFIG_BT_NIMBLE_L2CAP_COC_MAX_NUM
 
 # include "inttypes.h"
-# ifdef USING_NIMBLE_ARDUINO_HEADERS
-#  include "nimble/nimble/host/include/host/ble_l2cap.h"
-#  include "nimble/porting/nimble/include/os/os_mbuf.h"
-# else
+# if defined(CONFIG_NIMBLE_CPP_IDF)
 #  include "host/ble_l2cap.h"
 #  include "os/os_mbuf.h"
+# else
+#  include "nimble/nimble/host/include/host/ble_l2cap.h"
+#  include "nimble/porting/nimble/include/os/os_mbuf.h"
 # endif
 
 /****  FIX COMPILATION ****/
@@ -55,14 +55,6 @@ class NimBLEL2CAPChannel {
     ///
     /// NOTE: This function will block until the data has been sent or an error occurred.
     bool write(const std::vector<uint8_t>& bytes);
-
-    /// @brief Disconnect this L2CAP channel.
-    /// @return true on success, false on failure.
-    bool disconnect();
-
-    /// @brief Get the connection handle associated with this channel.
-    /// @return Connection handle, or BLE_HS_CONN_HANDLE_NONE if not connected.
-    uint16_t getConnHandle() const;
 
     /// @return True, if the channel is connected. False, otherwise.
     bool isConnected() const { return !!channel; }

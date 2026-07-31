@@ -18,10 +18,10 @@
 #ifndef NIMBLE_CPP_CONNINFO_H_
 #define NIMBLE_CPP_CONNINFO_H_
 
-#ifdef USING_NIMBLE_ARDUINO_HEADERS
-# include "nimble/nimble/host/include/host/ble_gap.h"
-#else
+#if defined(CONFIG_NIMBLE_CPP_IDF)
 # include "host/ble_gap.h"
+#else
+# include "nimble/nimble/host/include/host/ble_gap.h"
 #endif
 
 #include "NimBLEAddress.h"

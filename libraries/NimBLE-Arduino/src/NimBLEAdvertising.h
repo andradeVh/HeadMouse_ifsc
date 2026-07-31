@@ -21,10 +21,10 @@
 #include "nimconfig.h"
 #if (CONFIG_BT_ENABLED && CONFIG_BT_NIMBLE_ROLE_BROADCASTER && !CONFIG_BT_NIMBLE_EXT_ADV) || defined(_DOXYGEN_)
 
-#ifdef USING_NIMBLE_ARDUINO_HEADERS
-#  include "nimble/nimble/host/include/host/ble_gap.h"
-# else
+# if defined(CONFIG_NIMBLE_CPP_IDF)
 #  include "host/ble_gap.h"
+# else
+#  include "nimble/nimble/host/include/host/ble_gap.h"
 # endif
 
 /****  FIX COMPILATION ****/

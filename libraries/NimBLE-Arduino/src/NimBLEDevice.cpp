@@ -24,7 +24,7 @@
 #   include "esp_bt.h"
 #  endif
 #  include "nvs_flash.h"
-#  ifndef USING_NIMBLE_ARDUINO_HEADERS
+#  if defined(CONFIG_NIMBLE_CPP_IDF)
 #   if (ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0) || CONFIG_BT_NIMBLE_LEGACY_VHCI_ENABLE)
 #    include "esp_nimble_hci.h"
 #   endif
@@ -35,14 +35,14 @@
 #   include "host/util/util.h"
 #   include "services/gap/ble_svc_gap.h"
 #   include "services/gatt/ble_svc_gatt.h"
-#  else // USING_NIMBLE_ARDUINO_HEADERS
+#  else
 #   include "nimble/esp_port/esp-hci/include/esp_nimble_hci.h"
 #  endif
 # else
 #  include "nimble/nimble/controller/include/controller/ble_phy.h"
 # endif
 
-# ifdef USING_NIMBLE_ARDUINO_HEADERS
+# ifndef CONFIG_NIMBLE_CPP_IDF
 #  include "nimble/porting/nimble/include/nimble/nimble_port.h"
 #  include "nimble/porting/npl/freertos/include/nimble/nimble_port_freertos.h"
 #  include "nimble/nimble/host/include/host/ble_hs.h"
@@ -362,12 +362,12 @@ bool NimBLEDevice::deleteClient(NimBLEClient* pClient) {
 
     for (auto& clt : m_pClients) {
         if (clt == pClient) {
-            if (clt->m_connStatus == NimBLEClient::CONNECTED || clt->m_connStatus == NimBLEClient::DISCONNECTING) {
+            if (clt->isConnected()) {
                 clt->m_config.deleteOnDisconnect = true;
                 if (!clt->disconnect()) {
                     break;
                 }
-            } else if (pClient->m_connStatus == NimBLEClient::CONNECTING) {
+            } else if (pClient->m_pTaskData != nullptr) {
                 clt->m_config.deleteOnConnectFail = true;
                 if (!clt->cancelConnect()) {
                     break;
@@ -435,7 +435,7 @@ NimBLEClient* NimBLEDevice::getClientByPeerAddress(const NimBLEAddress& addr) {
  */
 NimBLEClient* NimBLEDevice::getDisconnectedClient() {
     for (const auto clt : m_pClients) {
-        if (clt != nullptr && clt->m_connStatus == NimBLEClient::DISCONNECTED) {
+        if (clt != nullptr && !clt->isConnected()) {
             return clt;
         }
     }
@@ -685,7 +685,7 @@ bool NimBLEDevice::isBonded(const NimBLEAddress& address) {
  * @returns NimBLEAddress of the found bonded peer or null address if not found.
  */
 NimBLEAddress NimBLEDevice::getBondedAddress(int index) {
-#  if MYNEWT_VAL(BLE_STORE_MAX_BONDS)
+# if MYNEWT_VAL(BLE_STORE_MAX_BONDS)
     ble_addr_t peer_id_addrs[MYNEWT_VAL(BLE_STORE_MAX_BONDS)];
     int        num_peers, rc;
     rc = ble_store_util_bonded_peers(&peer_id_addrs[0], &num_peers, MYNEWT_VAL(BLE_STORE_MAX_BONDS));
@@ -694,10 +694,10 @@ NimBLEAddress NimBLEDevice::getBondedAddress(int index) {
     }
 
     return NimBLEAddress(peer_id_addrs[index]);
-#  else
+# else
     (void)index; // unused
     return NimBLEAddress{};
-#  endif
+# endif
 }
 # endif
 
@@ -914,7 +914,7 @@ bool NimBLEDevice::init(const std::string& deviceName) {
         esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT);
 #  endif
 
-#  if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0) || defined(USING_NIMBLE_ARDUINO_HEADERS)
+#  if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0) || !defined(CONFIG_NIMBLE_CPP_IDF)
         esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
 #   if defined(CONFIG_IDF_TARGET_ESP32)
         bt_cfg.mode         = ESP_BT_MODE_BLE;
@@ -1028,7 +1028,7 @@ bool NimBLEDevice::deinit(bool clearAll) {
         rc = nimble_port_stop();
         if (rc == 0) {
             nimble_port_deinit();
-# ifndef USING_NIMBLE_ARDUINO_HEADERS
+# ifdef CONFIG_NIMBLE_CPP_IDF
 #  if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
             rc = esp_nimble_hci_and_controller_deinit();
             if (rc != ESP_OK) {
@@ -1278,17 +1278,17 @@ bool NimBLEDevice::startSecurity(uint16_t connHandle, int* rcPtr) {
  * @return true if the passkey was injected successfully.
  */
 bool NimBLEDevice::injectPassKey(const NimBLEConnInfo& peerInfo, uint32_t passkey) {
-#  if MYNEWT_VAL(BLE_SM_LEGACY)
+#if MYNEWT_VAL(BLE_SM_LEGACY)
     ble_sm_io pkey{.action = BLE_SM_IOACT_INPUT, .passkey = passkey};
     int       rc = ble_sm_inject_io(peerInfo.getConnHandle(), &pkey);
     NIMBLE_LOGD(LOG_TAG, "BLE_SM_IOACT_INPUT; ble_sm_inject_io result: %d", rc);
     return rc == 0;
-#  else
+#else
     (void)peerInfo;
     (void)passkey;
     NIMBLE_LOGE(LOG_TAG, "Passkey entry not supported with current security settings");
     return false;
-#  endif
+#endif
 }
 
 /**
@@ -1297,17 +1297,17 @@ bool NimBLEDevice::injectPassKey(const NimBLEConnInfo& peerInfo, uint32_t passke
  * @param [in] accept Whether the user confirmed or declined the comparison.
  */
 bool NimBLEDevice::injectConfirmPasskey(const NimBLEConnInfo& peerInfo, bool accept) {
-#  if MYNEWT_VAL(BLE_SM_SC)
+#if MYNEWT_VAL(BLE_SM_SC)
     ble_sm_io pkey{.action = BLE_SM_IOACT_NUMCMP, .numcmp_accept = accept};
     int       rc = ble_sm_inject_io(peerInfo.getConnHandle(), &pkey);
     NIMBLE_LOGD(LOG_TAG, "BLE_SM_IOACT_NUMCMP; ble_sm_inject_io result: %d", rc);
     return rc == 0;
-#  else
+#else
     (void)peerInfo;
     (void)accept;
     NIMBLE_LOGE(LOG_TAG, "Numeric comparison not supported with current security settings");
     return false;
-#  endif
+#endif
 }
 # endif // CONFIG_BT_NIMBLE_ROLE_CENTRAL || CONFIG_BT_NIMBLE_ROLE_PERIPHERAL
 

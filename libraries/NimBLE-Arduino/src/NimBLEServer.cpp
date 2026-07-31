@@ -25,12 +25,12 @@
 #  include "NimBLEClient.h"
 # endif
 
-# ifdef USING_NIMBLE_ARDUINO_HEADERS
-#  include "nimble/nimble/host/services/gap/include/services/gap/ble_svc_gap.h"
-#  include "nimble/nimble/host/services/gatt/include/services/gatt/ble_svc_gatt.h"
-# else
+# if defined(CONFIG_NIMBLE_CPP_IDF)
 #  include "services/gap/ble_svc_gap.h"
 #  include "services/gatt/ble_svc_gatt.h"
+# else
+#  include "nimble/nimble/host/services/gap/include/services/gap/ble_svc_gap.h"
+#  include "nimble/nimble/host/services/gatt/include/services/gatt/ble_svc_gatt.h"
 # endif
 
 # define NIMBLE_SERVER_GET_PEER_NAME_ON_CONNECT_CB 0
@@ -98,7 +98,8 @@ NimBLEService* NimBLEServer::createService(const char* uuid) {
 NimBLEService* NimBLEServer::createService(const NimBLEUUID& uuid) {
     NimBLEService* pService = new NimBLEService(uuid);
     m_svcVec.push_back(pService);
-    setServiceChanged();
+    serviceChanged();
+
     return pService;
 } // createService
 
@@ -171,19 +172,11 @@ NimBLEAdvertising* NimBLEServer::getAdvertising() const {
  * @brief Called when the services are added/removed and sets a flag to indicate they should be reloaded.
  * @details This has no effect if the GATT server was not already started.
  */
-void NimBLEServer::setServiceChanged() {
+void NimBLEServer::serviceChanged() {
     if (m_gattsStarted) {
         m_svcChanged = true;
     }
 } // serviceChanged
-
-/**
- * @brief Send a service changed indication to all clients.
- * @details This should be called when services are added, removed or modified after the server has been started.
- */
-void NimBLEServer::sendServiceChangedIndication() const {
-    ble_svc_gatt_changed(0x0001, 0xffff);
-}
 
 /**
  * @brief Callback for GATT registration events,
@@ -305,7 +298,7 @@ bool NimBLEServer::start() {
     // If the services have changed indicate it now
     if (m_svcChanged) {
         m_svcChanged = false;
-        sendServiceChangedIndication();
+        ble_svc_gatt_changed(0x0001, 0xffff);
     }
 
     m_gattsStarted = true;
@@ -320,15 +313,12 @@ bool NimBLEServer::start() {
  */
 bool NimBLEServer::disconnect(uint16_t connHandle, uint8_t reason) const {
     int rc = ble_gap_terminate(connHandle, reason);
-    switch (rc) {
-        case 0:
-        case BLE_HS_ENOTCONN:
-        case BLE_HS_EALREADY:
-        case BLE_HS_HCI_ERR(BLE_ERR_UNK_CONN_ID):
-            return true;
+    if (rc != 0 && rc != BLE_HS_ENOTCONN && rc != BLE_HS_EALREADY) {
+        NIMBLE_LOGE(LOG_TAG, "ble_gap_terminate failed: rc=%d %s", rc, NimBLEUtils::returnCodeToString(rc));
+        return false;
     }
-    NIMBLE_LOGE(LOG_TAG, "ble_gap_terminate failed: rc=%d %s", rc, NimBLEUtils::returnCodeToString(rc));
-    return false;
+
+    return true;
 } // disconnect
 
 /**
@@ -840,7 +830,7 @@ void NimBLEServer::removeService(NimBLEService* service, bool deleteSvc) {
     }
 
     service->setRemoved(deleteSvc ? NIMBLE_ATT_REMOVE_DELETE : NIMBLE_ATT_REMOVE_HIDE);
-    setServiceChanged();
+    serviceChanged();
 # if !CONFIG_BT_NIMBLE_EXT_ADV && CONFIG_BT_NIMBLE_ROLE_BROADCASTER
     NimBLEDevice::getAdvertising()->removeServiceUUID(service->getUUID());
 # endif
@@ -867,7 +857,7 @@ void NimBLEServer::addService(NimBLEService* service) {
     }
 
     service->setRemoved(0);
-    setServiceChanged();
+    serviceChanged();
 } // addService
 
 /**
@@ -1066,7 +1056,7 @@ void NimBLEServer::updateConnParams(
  * @param [in] octets The preferred number of payload octets to use (Range 0x001B-0x00FB).
  */
 void NimBLEServer::setDataLen(uint16_t connHandle, uint16_t octets) const {
-# if !defined(USING_NIMBLE_ARDUINO_HEADERS) && !defined(ESP_IDF_VERSION) || \
+# if defined(CONFIG_NIMBLE_CPP_IDF) && !defined(ESP_IDF_VERSION) || \
      (ESP_IDF_VERSION_MAJOR * 100 + ESP_IDF_VERSION_MINOR * 10 + ESP_IDF_VERSION_PATCH) < 432
     return;
 # else
@@ -1113,7 +1103,6 @@ NimBLEClient* NimBLEServer::getClient(const NimBLEConnInfo& connInfo) {
     m_pClient->deleteServices(); // Changed peer connection delete the database.
     m_pClient->m_peerAddress = connInfo.getAddress();
     m_pClient->m_connHandle  = connInfo.getConnHandle();
-    m_pClient->m_connStatus  = NimBLEClient::CONNECTED;
     return m_pClient;
 } // getClient
 

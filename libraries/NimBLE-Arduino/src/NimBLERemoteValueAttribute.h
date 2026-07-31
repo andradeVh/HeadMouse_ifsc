@@ -21,10 +21,10 @@
 #include "nimconfig.h"
 #if CONFIG_BT_ENABLED && CONFIG_BT_NIMBLE_ROLE_CENTRAL
 
-#ifdef USING_NIMBLE_ARDUINO_HEADERS
-#  include "nimble/nimble/host/include/host/ble_gatt.h"
+# if defined(CONFIG_NIMBLE_CPP_IDF)
+#  include <host/ble_gatt.h>
 # else
-#  include "host/ble_gatt.h"
+#  include <nimble/nimble/host/include/host/ble_gatt.h>
 # endif
 
 /****  FIX COMPILATION ****/

@@ -21,10 +21,10 @@
 #include "nimconfig.h"
 #if CONFIG_BT_ENABLED && CONFIG_BT_NIMBLE_ROLE_PERIPHERAL
 
-# ifdef USING_NIMBLE_ARDUINO_HEADERS
-#  include "nimble/nimble/host/include/host/ble_gap.h"
-# else
+# if defined(CONFIG_NIMBLE_CPP_IDF)
 #  include "host/ble_gap.h"
+# else
+#  include "nimble/nimble/host/include/host/ble_gap.h"
 # endif
 
 /****  FIX COMPILATION ****/
@@ -83,7 +83,6 @@ class NimBLEServer {
     void                  setDataLen(uint16_t connHandle, uint16_t tx_octets) const;
     bool                  updatePhy(uint16_t connHandle, uint8_t txPhysMask, uint8_t rxPhysMask, uint16_t phyOptions);
     bool                  getPhy(uint16_t connHandle, uint8_t* txPhy, uint8_t* rxPhy);
-    void                  sendServiceChangedIndication() const;
 
 # if CONFIG_BT_NIMBLE_ROLE_CENTRAL
     NimBLEClient* getClient(uint16_t connHandle);
@@ -137,7 +136,7 @@ class NimBLEServer {
     static int  handleGapEvent(struct ble_gap_event* event, void* arg);
     static int  handleGattEvent(uint16_t connHandle, uint16_t attrHandle, ble_gatt_access_ctxt* ctxt, void* arg);
     static void gattRegisterCallback(struct ble_gatt_register_ctxt* ctxt, void* arg);
-    void        setServiceChanged();
+    void        serviceChanged();
     bool        resetGATT();
 
 }; // NimBLEServer
