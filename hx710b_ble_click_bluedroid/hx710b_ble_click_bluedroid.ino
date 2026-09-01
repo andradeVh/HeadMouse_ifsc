@@ -23,19 +23,19 @@ const int PIN_OUT = 2; // GPIO 2 (Entrada de dados - DOUT do HX710B)
 const int PIN_SCK = 3; // GPIO 3 (Saída de clock - SCK do HX710B)
 
 // ================== PARÂMETROS DE DETECÇÃO ==================
-const long DELTA = 20000;              // Limiar de variação em relação à média
+const long DELTA = 60000;              // Limiar de variação em relação à média
 const int TAMANHO_BUFFER = 20;         // Tamanho da janela de média móvel
 // Tempo mínimo entre dois cliques - serve só para filtrar ruído/repique
 // elétrico, NÃO para separar cliques intencionais (a detecção por borda
 // já garante 1 clique por pressão real). Se estiver alto demais, engole
 // o segundo clique de um double click. 80-120ms costuma ser suficiente.
-const unsigned long DEBOUNCE_MS = 200
+const unsigned long DEBOUNCE_MS = 100
 ;
 
 // Trava máxima do estado "pressionado": mesmo que o sinal não volte a ficar
 // abaixo do DELTA, o estado é destravado à força após esse tempo, liberando
 // o próximo clique. Evita ficar "preso" esperando a média se ajustar.
-const unsigned long TIMEOUT_PRESSAO_MS = 500;
+const unsigned long TIMEOUT_PRESSAO_MS = 200;
 
 // Libera o estado "pressionado" assim que a diferença cair para esta fração
 // do DELTA, sem precisar voltar 100% ao normal. Ex: 0.75 = libera quando a

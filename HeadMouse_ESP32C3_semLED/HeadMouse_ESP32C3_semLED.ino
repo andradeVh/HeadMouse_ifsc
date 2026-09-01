@@ -251,7 +251,7 @@ void loop() {
       int16_t _gx, _gy, _gz;
       mpu.getRotation(&_gx, &_gy, &_gz);
 
-      vx = -_gy / 100;
+      vx = _gx / 100;
       vy = _gz / 100;
 
       if (abs(vx) < 2) vx = 0;
