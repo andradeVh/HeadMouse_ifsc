@@ -251,8 +251,8 @@ void loop() {
       int16_t _gx, _gy, _gz;
       mpu.getRotation(&_gx, &_gy, &_gz);
 
-      vx = _gx / 100;
-      vy = _gz / 100;
+      vx = _gx / 150;
+      vy = _gz / 150;
 
       if (abs(vx) < 2) vx = 0;
       if (abs(vy) < 2) vy = 0;
@@ -283,6 +283,7 @@ void processarLeituraIR(int leitura, bool btConectado) {
     Serial.println(g_valorBaseLine);
     return;
   }
+  
   if (g_valorBaseLine < 0) return;
 
   if (millis() - ultimoDebug > 150) {
@@ -297,6 +298,7 @@ void processarLeituraIR(int leitura, bool btConectado) {
     ultimoDebug = millis();
   }
 
+  
   if (!emPiscada) {
     float erro = abs(g_mediaAtual - g_valorBaseLine);
     float t = (erro - ERRO_MIN) / (ERRO_MAX - ERRO_MIN);
@@ -306,9 +308,12 @@ void processarLeituraIR(int leitura, bool btConectado) {
 
     g_valorBaseLine = (g_valorBaseLine * (1.0 - alphaAdaptativo))
                     + (g_mediaAtual    *  alphaAdaptativo);
-
+                    
     bool quedaSuficiente = (g_mediaAtual < (g_valorBaseLine - DELTA_PISCADA));
-    float velocidadeQueda = g_mediaAnterior - g_mediaAtual;
+
+    
+    // frequencia de medias iguais, entao a velocidade e a diferençã das medias
+    float velocidadeQueda = g_mediaAnterior - g_mediaAtual; 
     bool quedaBrusca = (velocidadeQueda > VELOCIDADE_MIN_PISCADA);
 
     if (quedaSuficiente && quedaBrusca) {
@@ -319,10 +324,14 @@ void processarLeituraIR(int leitura, bool btConectado) {
       Serial.println(">>> PRESS");
       Serial.print("velocidade no momento: ");
       Serial.println(velocidadeQueda);
+      Serial.print("Leit no momento:");   Serial.println(leitura);
+      Serial.print(" Media no momento:"); Serial.println(g_mediaAtual);
+      Serial.print(" Base no momento:");  Serial.println(g_valorBaseLine);
     }
 
   } else {
-    bool voltouAoNormal = (g_mediaAtual > (g_valorBaseLine - DELTA_PISCADA * FATOR_RELEASE));
+    //se a media volta 
+    bool voltouAoNormal = (g_mediaAtual > (g_valorBaseLine - DELTA_PISCADA* FATOR_RELEASE));
     bool timeout = (millis() - tempoInicioPiscada > TIMEOUT_PISCADA_MS);
 
     if (voltouAoNormal || timeout) {
