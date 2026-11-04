@@ -10,8 +10,6 @@
 #include <NimBLEDevice.h>
 #include <NimBLEHIDDevice.h>
 
-#include <driver/gpio.h>
-
 // ================== DEBUG SERIAL ==================
 #define DEBUG_SERIAL 1
 
@@ -35,21 +33,18 @@
 void setupBLE();
 void enviarReport(uint8_t botoes, int8_t x, int8_t y);
 void enviarClique();
-void entrarDeepSleep();
 long lerHX710B();
 
 // ================== PINOS (ESP32-C3 Super Mini) ==================
 const int PIN_OUT = 2; // DOUT do HX710B
 const int PIN_SCK = 3; // SCK do HX710B
-const int PIN_WAKE = 4; // Botão para GND que acorda do Deep Sleep (GPIO 0-5 no C3)
 
 // ================== PARÂMETROS BLE (economia de energia) ==================
-const unsigned long ADV_TIMEOUT_MS = 60000; // Sem conexão por 60 s -> Deep Sleep
 const uint16_t ADV_INTERVALO = 160;         // Unidades de 0,625 ms -> 100 ms
 const uint16_t CONN_INTERVALO_MIN = 12;     // Unidades de 1,25 ms  -> 15 ms
 const uint16_t CONN_INTERVALO_MAX = 24;     // 30 ms
 const uint16_t CONN_LATENCIA = 10;          // Eventos que o periférico pode pular sem dados
-const uint16_t CONN_TIMEOUT = 400;          // Unidades de 10 ms    -> 4 s (> 3 x 30 ms x 11)
+const uint16_t CONN_TIMEOUT = 400;          // Unidades de 10 ms    -> 4 s
 
 // ================== PARÂMETROS DE DETECÇÃO ==================
 const long DELTA = 60000;
@@ -60,7 +55,7 @@ const float FATOR_RELEASE = 0.35;
 
 // ================== BUFFER DE MÉDIA MÓVEL (SOMA ACUMULADA) ==================
 long leituras[TAMANHO_BUFFER] = {0};
-long somaLeituras = 0; // Guardará o acumulado O(1)
+long somaLeituras = 0;
 int indiceBuffer = 0;
 int totalLeituras = 0;
 bool bufferCheio = false;
@@ -75,7 +70,6 @@ NimBLEHIDDevice* hid;
 NimBLECharacteristic* inputMouse;
 NimBLEServer* pServer;
 volatile bool conectado = false;
-volatile unsigned long inicioAdvMillis = 0;
 
 static const uint8_t reportMap[] = {
   0x05, 0x01,       // USAGE_PAGE (Generic Desktop)
@@ -118,7 +112,6 @@ class MinhasServerCallbacks : public NimBLEServerCallbacks {
   void onDisconnect(NimBLEServer* server, NimBLEConnInfo& connInfo, int reason) override {
     conectado = false;
     LOGF("\n[BLE STATUS] >>> DESCONECTADO (motivo: %d). Reiniciando Advertising... <<<\n", reason);
-    inicioAdvMillis = millis();
     NimBLEDevice::startAdvertising();
   }
 };
@@ -149,7 +142,6 @@ void setupBLE() {
   pAdvertising->setMinInterval(ADV_INTERVALO);
   pAdvertising->setMaxInterval(ADV_INTERVALO);
   pAdvertising->start();
-  inicioAdvMillis = millis();
 
   LOG("[BLE] Stack HID (NimBLE) pronta. Aguardando conexão do Host...");
 }
@@ -190,30 +182,7 @@ void enviarClique() {
   LOG("--------------------------------------------------\n");
 }
 
-void entrarDeepSleep() {
-  LOGF("\n[SLEEP] Sem conexão há %lu s. Entrando em Deep Sleep...\n", ADV_TIMEOUT_MS / 1000);
-  LOG_FLUSH();
-
-  NimBLEDevice::getAdvertising()->stop();
-  NimBLEDevice::deinit(true);
-
-  digitalWrite(PIN_SCK, HIGH);
-  delayMicroseconds(100);
-  gpio_hold_en((gpio_num_t)PIN_SCK);
-  gpio_deep_sleep_hold_en();
-
-  gpio_pullup_en((gpio_num_t)PIN_WAKE);
-  gpio_pulldown_dis((gpio_num_t)PIN_WAKE);
-  esp_deep_sleep_enable_gpio_wakeup(1ULL << PIN_WAKE, ESP_GPIO_WAKEUP_GPIO_LOW);
-
-  esp_deep_sleep_start();
-}
-
 void setup() {
-  gpio_deep_sleep_hold_dis();
-  gpio_hold_dis((gpio_num_t)PIN_SCK);
-  gpio_reset_pin((gpio_num_t)PIN_WAKE);
-
   pinMode(PIN_OUT, INPUT);
   pinMode(PIN_SCK, OUTPUT);
   digitalWrite(PIN_SCK, LOW);
@@ -266,15 +235,10 @@ long IRAM_ATTR lerHX710B() {
 }
 
 void loop() {
-  if (!conectado && (millis() - inicioAdvMillis > ADV_TIMEOUT_MS)) {
-    entrarDeepSleep();
-  }
-
   long ultimaLeitura = lerHX710B();
 
   if (ultimaLeitura != 0) {
     if (!bufferCheio) {
-      // Preenchimento inicial do buffer
       leituras[indiceBuffer] = ultimaLeitura;
       somaLeituras += ultimaLeitura;
       indiceBuffer = (indiceBuffer + 1) % TAMANHO_BUFFER;
@@ -287,7 +251,6 @@ void loop() {
         LOG("--> [BUFFER] Cheio! Monitoramento ativado.\n");
       }
     } else {
-      // Atualização O(1) usando a soma acumulada
       somaLeituras -= leituras[indiceBuffer];
       leituras[indiceBuffer] = ultimaLeitura;
       somaLeituras += ultimaLeitura;
