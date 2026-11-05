@@ -1,6 +1,6 @@
 /*
   HX710B (sensor de pressão) + ESP32-C3 Super Mini + BLE HID Mouse
-  Versão NimBLE-Arduino 2.x com soma acumulada O(1) na média móvel.
+  Versão NimBLE-Arduino 2.x com média O(1) e leitura contínua.
 */
 
 #include <Arduino.h>
@@ -26,7 +26,7 @@
 #endif
 
 #ifndef HID_MOUSE
-#define HID_MOUSE 0x03C2   // Appearance: Mouse
+#define HID_MOUSE 0x03C2
 #endif
 
 // Protótipos
@@ -39,12 +39,12 @@ long lerHX710B();
 const int PIN_OUT = 2; // DOUT do HX710B
 const int PIN_SCK = 3; // SCK do HX710B
 
-// ================== PARÂMETROS BLE (economia de energia) ==================
-const uint16_t ADV_INTERVALO = 160;         // Unidades de 0,625 ms -> 100 ms
-const uint16_t CONN_INTERVALO_MIN = 12;     // Unidades de 1,25 ms  -> 15 ms
+// ================== PARÂMETROS BLE ==================
+const uint16_t ADV_INTERVALO = 160;         // 100 ms
+const uint16_t CONN_INTERVALO_MIN = 12;     // 15 ms
 const uint16_t CONN_INTERVALO_MAX = 24;     // 30 ms
-const uint16_t CONN_LATENCIA = 10;          // Eventos que o periférico pode pular sem dados
-const uint16_t CONN_TIMEOUT = 400;          // Unidades de 10 ms    -> 4 s
+const uint16_t CONN_LATENCIA = 10;          
+const uint16_t CONN_TIMEOUT = 400;          // 4 s
 
 // ================== PARÂMETROS DE DETECÇÃO ==================
 const long DELTA = 60000;
@@ -72,53 +72,31 @@ NimBLEServer* pServer;
 volatile bool conectado = false;
 
 static const uint8_t reportMap[] = {
-  0x05, 0x01,       // USAGE_PAGE (Generic Desktop)
-  0x09, 0x02,       // USAGE (Mouse)
-  0xA1, 0x01,       // COLLECTION (Application)
-  0x09, 0x01,       //   USAGE (Pointer)
-  0xA1, 0x00,       //   COLLECTION (Physical)
-  0x85, 0x01,       //     REPORT_ID (1)
-  0x05, 0x09,       //     USAGE_PAGE (Button)
-  0x19, 0x01,       //     USAGE_MINIMUM (Button 1)
-  0x29, 0x03,       //     USAGE_MAXIMUM (Button 3)
-  0x15, 0x00,       //     LOGICAL_MINIMUM (0)
-  0x25, 0x01,       //     LOGICAL_MAXIMUM (1)
-  0x95, 0x03,       //     REPORT_COUNT (3)
-  0x75, 0x01,       //     REPORT_SIZE (1)
-  0x81, 0x02,       //     INPUT (Data,Var,Abs)
-  0x95, 0x01,       //     REPORT_COUNT (1)
-  0x75, 0x05,       //     REPORT_SIZE (5)
-  0x81, 0x03,       //     INPUT (Cnst,Var,Abs)  -- padding
-  0x05, 0x01,       //     USAGE_PAGE (Generic Desktop)
-  0x09, 0x30,       //     USAGE (X)
-  0x09, 0x31,       //     USAGE (Y)
-  0x09, 0x38,       //     USAGE (Wheel)
-  0x15, 0x81,       //     LOGICAL_MINIMUM (-127)
-  0x25, 0x7F,       //     LOGICAL_MAXIMUM (127)
-  0x75, 0x08,       //     REPORT_SIZE (8)
-  0x95, 0x03,       //     REPORT_COUNT (3)
-  0x81, 0x06,       //     INPUT (Data,Var,Rel)
-  0xC0,             //   END_COLLECTION
-  0xC0              // END_COLLECTION
+  0x05, 0x01, 0x09, 0x02, 0xA1, 0x01, 0x09, 0x01,
+  0xA1, 0x00, 0x85, 0x01, 0x05, 0x09, 0x19, 0x01,
+  0x29, 0x03, 0x15, 0x00, 0x25, 0x01, 0x95, 0x03,
+  0x75, 0x01, 0x81, 0x02, 0x95, 0x01, 0x75, 0x05,
+  0x81, 0x03, 0x05, 0x01, 0x09, 0x30, 0x09, 0x31,
+  0x09, 0x38, 0x15, 0x81, 0x25, 0x7F, 0x75, 0x08,
+  0x95, 0x03, 0x81, 0x06, 0xC0, 0xC0
 };
 
 class MinhasServerCallbacks : public NimBLEServerCallbacks {
   void onConnect(NimBLEServer* server, NimBLEConnInfo& connInfo) override {
     conectado = true;
-    LOG("\n[BLE STATUS] >>> DISPOSITIVO CONECTADO E PRONTO <<<");
+    LOG("\n[BLE STATUS] >>> DISPOSITIVO CONECTADO <<<");
     server->updateConnParams(connInfo.getConnHandle(), CONN_INTERVALO_MIN, CONN_INTERVALO_MAX,
                              CONN_LATENCIA, CONN_TIMEOUT);
   }
   void onDisconnect(NimBLEServer* server, NimBLEConnInfo& connInfo, int reason) override {
     conectado = false;
-    LOGF("\n[BLE STATUS] >>> DESCONECTADO (motivo: %d). Reiniciando Advertising... <<<\n", reason);
+    LOGF("\n[BLE STATUS] >>> DESCONECTADO (motivo: %d) <<<\n", reason);
     NimBLEDevice::startAdvertising();
   }
 };
 
 void setupBLE() {
   NimBLEDevice::init("Botao Bola");
-
   NimBLEDevice::setSecurityAuth(true, false, true);
   NimBLEDevice::setSecurityIOCap(BLE_HS_IO_NO_INPUT_OUTPUT);
 
@@ -143,43 +121,23 @@ void setupBLE() {
   pAdvertising->setMaxInterval(ADV_INTERVALO);
   pAdvertising->start();
 
-  LOG("[BLE] Stack HID (NimBLE) pronta. Aguardando conexão do Host...");
+  LOG("[BLE] Stack HID pronta.");
 }
 
 void enviarReport(uint8_t botoes, int8_t x, int8_t y) {
-  if (!conectado) {
-    LOG("  [BLE ERR] Tentativa de envio sem conexão BLE ativa!");
-    return;
-  }
-
+  if (!conectado) return;
   uint8_t report[4] = { botoes, (uint8_t)x, (uint8_t)y, 0 };
   inputMouse->setValue(report, sizeof(report));
   inputMouse->notify();
-
-  LOGF("  [HID TX] Payload enviado: [Botões: 0x%02X | X: %d | Y: %d]\n", report[0], x, y);
 }
 
 void enviarClique() {
-  LOG("\n--------------------------------------------------");
-  LOG(">>> EVENTO DE CLIQUE DETECTADO (HX710B) <<<");
-  LOGF("    Instante: %lu ms | Desde o último clique: %lu ms\n", millis(), millis() - ultimoCliqueMillis);
+  LOG("\n>>> CLIQUE DETECTADO (HX710B) <<<");
+  if (!conectado) return;
 
-  if (!conectado) {
-    LOG(">>> [AVISO] Clique ignorado: Nenhum dispositivo BLE conectado! <<<");
-    LOG("--------------------------------------------------\n");
-    return;
-  }
-
-  LOG("1. Enviando Pressionar Botão Esquerdo (0x01)...");
   enviarReport(0x01, 0, 0);
-
   delay(30);
-
-  LOG("2. Enviando Soltar Botão (0x00)...");
   enviarReport(0x00, 0, 0);
-
-  LOG(">>> CLIQUE ENVIADO COM SUCESSO AO HOST BLE <<<");
-  LOG("--------------------------------------------------\n");
 }
 
 void setup() {
@@ -192,27 +150,25 @@ void setup() {
   delay(1000);
 #endif
 
-  LOG("\n=== HX710B + ESP32-C3 Super Mini + NimBLE Mouse Debug ===");
+  LOG("\n=== HX710B + ESP32-C3 Super Mini + NimBLE Mouse ===");
 
   esp_wifi_stop();
   esp_wifi_deinit();
   setCpuFrequencyMhz(80);
 
-  LOG("[INIT] Aguardando preenchimento do buffer (20 leituras)...");
   setupBLE();
 }
 
-long IRAM_ATTR lerHX710B() {
-  unsigned long timeout = millis();
-  while (digitalRead(PIN_OUT) == HIGH) {
-    if (millis() - timeout > 500) {
-      return 0;
-    }
-    delay(1);
+// Leitura não-bloqueante do HX710B
+long lerHX710B() {
+  if (digitalRead(PIN_OUT) == HIGH) {
+    return 0;
   }
+
   long resultado = 0;
   portMUX_TYPE myMutex = portMUX_INITIALIZER_UNLOCKED;
   portENTER_CRITICAL(&myMutex);
+
   for (int i = 0; i < 24; i++) {
     digitalWrite(PIN_SCK, HIGH);
     esp_rom_delay_us(1);
@@ -223,11 +179,15 @@ long IRAM_ATTR lerHX710B() {
       resultado++;
     }
   }
+
+  // 25º pulso para manter a taxa de amostragem em 10Hz
   digitalWrite(PIN_SCK, HIGH);
   esp_rom_delay_us(1);
   digitalWrite(PIN_SCK, LOW);
   esp_rom_delay_us(1);
+
   portEXIT_CRITICAL(&myMutex);
+
   if (resultado & 0x800000) {
     resultado |= 0xFF000000;
   }
@@ -244,11 +204,9 @@ void loop() {
       indiceBuffer = (indiceBuffer + 1) % TAMANHO_BUFFER;
       totalLeituras++;
 
-      LOGF("[BUFFER] Carregando: %d/%d (Leitura: %ld)\n", totalLeituras, TAMANHO_BUFFER, ultimaLeitura);
-
       if (totalLeituras >= TAMANHO_BUFFER) {
         bufferCheio = true;
-        LOG("--> [BUFFER] Cheio! Monitoramento ativado.\n");
+        LOG("--> Buffer cheio! Monitoramento ativo.");
       }
     } else {
       somaLeituras -= leituras[indiceBuffer];
@@ -261,19 +219,10 @@ void loop() {
       bool acimaDoLimiar = (diferenca > DELTA);
       unsigned long agora = millis();
 
-      LOGF("Raw: %ld | Média: %ld | Diff: %ld | Limiar: %ld | Press: %s | BLE: %s\n",
-                    ultimaLeitura, media, diferenca, DELTA,
-                    emEstadoPressionado ? "SIM" : "NAO",
-                    conectado ? "CONECTADO" : "DESCONECTADO");
-
       if (acimaDoLimiar && !emEstadoPressionado) {
         if (agora - ultimoCliqueMillis > DEBOUNCE_MS) {
-          LOGF("\n[ALERTA DETECTADO] Diferença (%ld) > DELTA (%ld)!\n", diferenca, DELTA);
           enviarClique();
           ultimoCliqueMillis = agora;
-        } else {
-          LOGF("  [DEBOUNCE] Clique bloqueado por tempo. Decorrido: %lu ms (Mínimo: %lu ms)\n",
-                        agora - ultimoCliqueMillis, DEBOUNCE_MS);
         }
         emEstadoPressionado = true;
         inicioPressaoMillis = agora;
@@ -282,12 +231,11 @@ void loop() {
         bool estourouTimeout = (agora - inicioPressaoMillis > TIMEOUT_PRESSAO_MS);
 
         if (voltouAoNormal || estourouTimeout) {
-          LOGF("  [REARME] Destravando estado pressionado (Voltou ao Normal: %s | Timeout: %s)\n",
-                        voltouAoNormal ? "SIM" : "NAO", estourouTimeout ? "SIM" : "NAO");
           emEstadoPressionado = false;
         }
       }
     }
   }
+
   delay(5);
 }
